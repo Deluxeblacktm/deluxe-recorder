@@ -1,0 +1,28 @@
+<resources>
+  <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+    <item name="colorPrimary">@color/primary</item>
+    <item name="colorOnPrimary">@color/white</item>
+    <item name="colorSurface">@color/surface</item>
+    <item name="colorOnSurface">@color/on_surface</item>
+    <item name="android:statusBarColor">@android:color/transparent</item>
+    <item name="android:navigationBarColor">@android:color/transparent</item>
+    <item name="android:windowBackground">@color/background</item>
+    <item name="android:windowSplashScreenBackground">#000000</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+  </style>
+
+  <style name="AppTheme.Dark" parent="AppTheme">
+    <item name="android:windowBackground">@color/background_dark</item>
+    <item name="android:windowSplashScreenBackground">#000000</item>
+    <item name="android:windowLightStatusBar">false</item>
+  </style>
+
+  <style name="Theme.Transparent" parent="@android:style/Theme.Translucent.NoTitleBar">
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:windowIsTranslucent">true</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:windowContentOverlay">@null</item>
+    <item name="android:backgroundDimEnabled">false</item>
+  </style>
+</resources>

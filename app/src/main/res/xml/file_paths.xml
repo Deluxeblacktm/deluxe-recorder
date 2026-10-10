@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <external-files-path name="movies" path="Movies/" />
+    <external-path name="public_movies" path="Movies/Deluxe Recorder/" />
+</paths>

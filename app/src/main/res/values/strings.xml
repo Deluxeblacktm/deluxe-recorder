@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Deluxe Recorder</string>
+    <string name="recording_notification_title">Gravando tela...</string>
+    <string name="recording_notification_text">Toque para parar a gravação</string>
+    <string name="action_stop">Parar</string>
+    <string name="start_recording">Iniciar gravação</string>
+    <string name="stop_recording">Parar gravação</string>
+    <string name="recording_status">Gravando...</string>
+    <string name="idle_status">Pronto para gravar</string>
+    <string name="share">Compartilhar</string>
+    <string name="delete">Excluir</string>
+    <string name="delete_confirmation">Excluir gravação?</string>
+    <string name="no_recordings">Nenhuma gravação ainda</string>
+    <string name="save_success">Vídeo salvo com sucesso</string>
+    <string name="overlay_permission">Permitir sobreposição</string>
+    <string name="overlay_permission_desc">Para mostrar o botão flutuante durante a gravação</string>
+    <string name="record_audio">Gravar áudio</string>
+    <string name="history">Histórico</string>
+    <string name="channel_recording">Gravação de tela</string>
+    <string name="idle_notification_text">Pronto para gravar</string>
+    <string name="tile_label_recording">Gravando…</string>
+    <string name="notif_btn_record">Gravar</string>
+    <string name="notif_btn_screenshot">Captura</string>
+    <string name="notif_btn_tools">Ferramentas</string>
+    <string name="notif_btn_home">Início</string>
+    <string name="notif_btn_exit">Sair</string>
+</resources>

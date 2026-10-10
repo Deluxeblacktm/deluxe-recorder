@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_notif_container"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <!-- Header: App Mini Icon + Deluxe Recorder • Ativo + Status -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp">
+
+        <FrameLayout
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:background="@drawable/bg_notif_mini_icon"
+            android:layout_marginEnd="8dp">
+
+            <ImageView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_videocam"
+                android:contentDescription="Icon" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/notif_app_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Deluxe Recorder • Ativo"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notif_status_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pronto"
+            android:textColor="#9CA3AF"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- Barra de Ações Horizontal (Cápsula Escura com borda) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_notif_actions"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <!-- 1. Gravar -->
+        <LinearLayout
+            android:id="@+id/notif_btn_gravar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="2dp">
+
+            <FrameLayout
+                android:id="@+id/notif_wrapper_gravar"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_notif_circle_active">
+
+                <ImageView
+                    android:id="@+id/notif_icon_gravar"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_record"
+                    android:contentDescription="@string/notif_btn_record" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/notif_btn_record_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notif_btn_record"
+                android:textColor="#D1D5DB"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- 2. Captura -->
+        <LinearLayout
+            android:id="@+id/notif_btn_screenshot"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="2dp">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_notif_circle">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_screenshot"
+                    android:contentDescription="@string/notif_btn_screenshot" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/notif_btn_screenshot_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notif_btn_screenshot"
+                android:textColor="#D1D5DB"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- 3. Opções -->
+        <LinearLayout
+            android:id="@+id/notif_btn_tools"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="2dp">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_notif_circle">
+
+                <ImageView
+                    android:id="@+id/notif_icon_tools"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_tools"
+                    android:contentDescription="@string/notif_btn_tools" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/notif_btn_tools_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notif_btn_tools"
+                android:textColor="#D1D5DB"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- 4. Início -->
+        <LinearLayout
+            android:id="@+id/notif_btn_home"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="2dp">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_notif_circle">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_home"
+                    android:contentDescription="@string/notif_btn_home" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/notif_btn_home_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notif_btn_home"
+                android:textColor="#D1D5DB"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- 5. Sair -->
+        <LinearLayout
+            android:id="@+id/notif_btn_exit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="2dp">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_notif_circle_exit">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_exit_red"
+                    android:contentDescription="@string/notif_btn_exit" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/notif_btn_exit_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notif_btn_exit"
+                android:textColor="#EF4444"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
