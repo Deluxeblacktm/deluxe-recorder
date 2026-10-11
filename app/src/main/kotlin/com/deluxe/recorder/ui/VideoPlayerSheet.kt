@@ -103,7 +103,7 @@ fun VideoPlayerSheet(
                     positionMs = pos
                 }
             }
-            delay(200)
+            delay(50)
         }
     }
 
@@ -153,11 +153,13 @@ fun VideoPlayerSheet(
                                         try {
                                             mediaPlayer.setDataSource(context, uri)
                                             mediaPlayer.setSurface(holder.surface)
-                                            mediaPlayer.prepare()
-                                            durationMs = mediaPlayer.duration
-                                            prepared.value = true
-                                            mediaPlayer.start()
-                                            isPlaying = true
+                                            mediaPlayer.setOnPreparedListener { mp ->
+                                                durationMs = mp.duration
+                                                prepared.value = true
+                                                mp.start()
+                                                isPlaying = true
+                                            }
+                                            mediaPlayer.prepareAsync()
                                         } catch (_: Exception) {}
                                     }
                                 }

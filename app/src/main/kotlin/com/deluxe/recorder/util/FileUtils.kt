@@ -4,12 +4,14 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.LruCache
+import android.util.Size
 import java.io.File
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
@@ -30,8 +32,31 @@ object FileUtils {
     private const val PHOTOS_FOLDER = "Deluxe Recorder Fotos"
     private val fileNameFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
 
-    private val thumbnailCache = object : LruCache<String, Bitmap>(48) {
+    // Cache de miniaturas de 24 MB (~200 miniaturas) em KB para manter 120 FPS fluido sem recargas
+    private val thumbnailCache = object : LruCache<String, Bitmap>(24 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = (value.byteCount + 1023) / 1024
+    }
+
+    fun getCachedThumbnail(key: String): Bitmap? = thumbnailCache.get(key)
+
+    fun getImageThumbnail(context: Context, uri: Uri, width: Int = 120, height: Int = 90): Bitmap? {
+        val cacheKey = "img@$uri@${width}x$height"
+        thumbnailCache.get(cacheKey)?.let { return it }
+
+        val bitmap = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.contentResolver.loadThumbnail(uri, Size(width, height), null)
+            } else {
+                BitmapFactory.decodeStream(
+                    context.contentResolver.openInputStream(uri)
+                )
+            }
+        } catch (_: Exception) {
+            null
+        }
+
+        bitmap?.let { thumbnailCache.put(cacheKey, it) }
+        return bitmap
     }
 
     fun getVideoThumbnail(context: Context, uri: Uri, targetPx: Int): Bitmap? {

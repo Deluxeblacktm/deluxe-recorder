@@ -81,11 +81,138 @@ class RecordingService : Service() {
         const val EXTRA_ORIENTATION = "orientation"
         const val EXTRA_AUDIO_SOURCE = "audio_source"
         const val EXTRA_COUNTDOWN = "countdown"
-        private const val CHANNEL_ID = "screen_recorder"
-        private const val NOTIFICATION_ID = 1001
+        const val CHANNEL_ID = "screen_recorder"
+        const val NOTIFICATION_ID = 1001
         private const val TAG = "ScreenRecorder"
         private const val FIFO_MAX_SAMPLES = 176_400 // 2 segundos de buffer em 44.1kHz stereo PCM
         private const val STALL_TIMEOUT_MS = 8000L
+
+        fun createNotificationChannel(context: Context) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.channel_recording),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = context.getString(R.string.recording_notification_title)
+                setShowBadge(false)
+            }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
+
+        fun showIdleNotification(context: Context) {
+            createNotificationChannel(context)
+            val notification = buildCustomNotification(context, isRecording = false)
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(NOTIFICATION_ID, notification)
+        }
+
+        fun buildCustomNotification(context: Context, isRecording: Boolean): Notification {
+            val remoteViews = RemoteViews(context.packageName, R.layout.notification_custom)
+
+            val gravarPendingIntent = if (isRecording) {
+                val stopIntent = Intent(context, RecordingService::class.java).apply { action = ACTION_STOP_RECORDING }
+                PendingIntent.getService(
+                    context, 10, stopIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            } else {
+                val recordIntent = Intent(context, RecordTrampolineActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+                }
+                PendingIntent.getActivity(
+                    context, 10, recordIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            }
+
+            val lang = RecordingState.language
+
+            remoteViews.setTextViewText(R.id.notif_app_title, I18n.notifAppTitle(lang, isRecording))
+            remoteViews.setTextViewText(R.id.notif_status_text, I18n.notifStatus(lang, isRecording))
+            remoteViews.setTextViewText(R.id.notif_btn_record_text, I18n.notifBtnRecord(lang, isRecording))
+            remoteViews.setTextViewText(R.id.notif_btn_screenshot_text, I18n.notifBtnScreenshot(lang))
+            remoteViews.setTextViewText(R.id.notif_btn_home_text, I18n.notifBtnHome(lang))
+            remoteViews.setTextViewText(R.id.notif_btn_exit_text, I18n.notifBtnExit(lang))
+
+            if (isRecording) {
+                remoteViews.setImageViewResource(R.id.notif_icon_gravar, R.drawable.ic_stop)
+            } else {
+                remoteViews.setImageViewResource(R.id.notif_icon_gravar, R.drawable.ic_record)
+            }
+
+            val screenshotIntent = Intent(context, CaptureTrampolineActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            }
+            val screenshotPendingIntent = PendingIntent.getActivity(
+                context, 11, screenshotIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val toolsPendingIntent = if (isRecording) {
+                val isPaused = RecordingState.isPaused
+                val pauseAction = if (isPaused) ACTION_RESUME_RECORDING else ACTION_PAUSE_RECORDING
+                val pauseText = if (isPaused) I18n.notifBtnResume(lang) else I18n.notifBtnPause(lang)
+                val pauseIcon = if (isPaused) R.drawable.ic_play else R.drawable.ic_pause
+
+                remoteViews.setTextViewText(R.id.notif_btn_tools_text, pauseText)
+                remoteViews.setImageViewResource(R.id.notif_icon_tools, pauseIcon)
+
+                val pauseIntent = Intent(context, RecordingService::class.java).apply { action = pauseAction }
+                PendingIntent.getService(
+                    context, 12, pauseIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            } else {
+                remoteViews.setTextViewText(R.id.notif_btn_tools_text, I18n.notifBtnBubble(lang))
+                remoteViews.setImageViewResource(R.id.notif_icon_tools, R.drawable.ic_tools)
+
+                val bubbleIntent = Intent(context, OverlayService::class.java).apply {
+                    action = OverlayService.ACTION_TOGGLE_BUBBLE
+                }
+                PendingIntent.getService(
+                    context, 12, bubbleIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            }
+
+            val homeIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val homePendingIntent = PendingIntent.getActivity(
+                context, 13, homeIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val exitIntent = Intent(context, RecordingService::class.java).apply { action = ACTION_EXIT }
+            val exitPendingIntent = PendingIntent.getService(
+                context, 14, exitIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            remoteViews.setOnClickPendingIntent(R.id.notif_btn_gravar, gravarPendingIntent)
+            remoteViews.setOnClickPendingIntent(R.id.notif_btn_screenshot, screenshotPendingIntent)
+            remoteViews.setOnClickPendingIntent(R.id.notif_btn_tools, toolsPendingIntent)
+            remoteViews.setOnClickPendingIntent(R.id.notif_btn_home, homePendingIntent)
+            remoteViews.setOnClickPendingIntent(R.id.notif_btn_exit, exitPendingIntent)
+
+            val openIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val openPendingIntent = PendingIntent.getActivity(
+                context, 1, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_record)
+                .setContentIntent(openPendingIntent)
+                .setCustomContentView(remoteViews)
+                .setCustomBigContentView(remoteViews)
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setOngoing(true)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .build()
+        }
     }
 
     private val languageListener: (String) -> Unit = {
@@ -133,48 +260,35 @@ class RecordingService : Service() {
     @Volatile private var totalPauseDurationUs = 0L
     @Volatile private var initialVideoPtsUs = -1L
 
-    private val pendingOutputData = mutableListOf<Pair<java.nio.ByteBuffer, MediaCodec.BufferInfo>>()
-
-    private class MuxerSample(
+    private class PendingSample(
         val trackIndex: Int,
         val data: ByteBuffer,
         val info: MediaCodec.BufferInfo
     )
+    private val pendingOutputData = mutableListOf<PendingSample>()
 
-    private val ramMuxerQueue = LinkedBlockingQueue<MuxerSample>(5000)
-    @Volatile private var isWriterRunning = false
-    private var muxerWriterThread: Thread? = null
-
-    private fun startMuxerWriterThread() {
-        ramMuxerQueue.clear()
-        isWriterRunning = true
-        muxerWriterThread = Thread({
-            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
-            Log.d(TAG, "MuxerWriterThread started (Async RAM Buffer)")
-            while (isWriterRunning || (muxerStarted && ramMuxerQueue.isNotEmpty())) {
-                if (!muxerStarted) {
-                    if (!isWriterRunning) break
-                    try { Thread.sleep(10) } catch (_: InterruptedException) { break }
-                    continue
+    private fun writeOrBufferSample(trackIndex: Int, buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+        if (trackIndex < 0 || info.size <= 0) return
+        muxerLock.withLock {
+            if (muxerStarted) {
+                try {
+                    mediaMuxer?.writeSampleData(trackIndex, buffer, info)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Direct writeSampleData error: ${e.message}")
                 }
-                val sample = ramMuxerQueue.poll(50, TimeUnit.MILLISECONDS) ?: continue
-                muxerLock.withLock {
-                    if (muxerStarted) {
-                        try {
-                            mediaMuxer?.writeSampleData(sample.trackIndex, sample.data, sample.info)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Async Muxer writeSampleData error: ${e.message}")
-                        }
-                    }
+            } else {
+                // Buffer apenas frames iniciais antes do start do muxer (máximo 50 frames ~ 1 seg)
+                if (pendingOutputData.size < 50) {
+                    buffer.position(info.offset)
+                    buffer.limit(info.offset + info.size)
+                    val copy = ByteBuffer.allocateDirect(info.size).order(ByteOrder.nativeOrder())
+                    copy.put(buffer)
+                    copy.flip()
+                    val infoCopy = MediaCodec.BufferInfo()
+                    infoCopy.set(0, info.size, info.presentationTimeUs, info.flags)
+                    pendingOutputData.add(PendingSample(trackIndex, copy, infoCopy))
                 }
             }
-            Log.d(TAG, "MuxerWriterThread finished cleanly, remaining=${ramMuxerQueue.size}")
-        }, "MuxerAsyncRamWriter").also { it.start() }
-    }
-
-    private fun enqueueMuxerSample(trackIndex: Int, data: ByteBuffer, info: MediaCodec.BufferInfo) {
-        if (trackIndex >= 0 && info.size > 0) {
-            ramMuxerQueue.offer(MuxerSample(trackIndex, data, info))
         }
     }
 
@@ -200,10 +314,7 @@ class RecordingService : Service() {
     private fun releaseAndResetComponents() {
         Log.d(TAG, "releaseAndResetComponents: liberando todos os recursos")
         isRecordingActive = false
-        isWriterRunning = false
-        try { muxerWriterThread?.join(2000) } catch (_: Exception) {}
-        muxerWriterThread = null
-        ramMuxerQueue.clear()
+        pendingOutputData.clear()
         joinDrainThreads()
         recordingInitThread?.let { t ->
             if (t.isAlive) {
@@ -568,7 +679,6 @@ class RecordingService : Service() {
 
         videoEncoder!!.start()
         isRecordingActive = true
-        startMuxerWriterThread()
         Log.d(TAG, "Video encoder started, no audio track")
 
         videoDrainThread = Thread({
@@ -669,7 +779,6 @@ class RecordingService : Service() {
         audioEncoder!!.start()
         audioRecord!!.startRecording()
         isRecordingActive = true
-        startMuxerWriterThread()
         Log.d(TAG, "Encoders and AudioRecord started")
         videoDrainThread = Thread({
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY)
@@ -761,7 +870,6 @@ class RecordingService : Service() {
         audioEncoder!!.start()
         micAudioRecord!!.startRecording()
         isRecordingActive = true
-        startMuxerWriterThread()
         Log.d(TAG, "Encoders and Mic AudioRecord started")
         videoDrainThread = Thread({
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY)
@@ -891,7 +999,6 @@ class RecordingService : Service() {
         audioRecord!!.startRecording()
         micAudioRecord!!.startRecording()
         isRecordingActive = true
-        startMuxerWriterThread()
         Log.d(TAG, "Encoders and both AudioRecords started")
         videoDrainThread = Thread({
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY)
@@ -947,7 +1054,7 @@ class RecordingService : Service() {
 
     private fun createVideoEncoderWithFallback(dim: RecordingDimensions): VideoEncoderResult {
         val videoMime = if (RecordingState.useHevc && isHevcSupported()) MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
-        val bitrateBps = getAdaptiveBitrate(RecordingState.resolution, RecordingState.fps)
+        val bitrateBps = if (RecordingState.bitrateMbps > 0) RecordingState.bitrateMbps * 1_000_000 else getAdaptiveBitrate(RecordingState.resolution, RecordingState.fps)
         val iFrameInterval = if (RecordingState.fps >= 60) 2 else 3
         val isLowRes = dim.height <= 480
 
@@ -964,13 +1071,13 @@ class RecordingService : Service() {
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameInterval)
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
-            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, repeatFrameUs)
+            // Otimizações Qualcomm Snapdragon 695 / Adreno 619:
+            setInteger(MediaFormat.KEY_PRIORITY, 0) // Prioridade de tempo real no hardware
+            setInteger(MediaFormat.KEY_OPERATING_RATE, RecordingState.fps) // Trava clock do VPU no FPS solicitado
+            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 100_000L) // 100ms em vez de 16.6ms (alivia GPU em tela de 120Hz)
             if (videoMime == MediaFormat.MIMETYPE_VIDEO_AVC) {
-                if (isLowRes) {
-                    setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
-                } else {
-                    setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileMain)
-                }
+                setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
+                setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel42)
             }
         }
 
@@ -987,9 +1094,12 @@ class RecordingService : Service() {
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameInterval)
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                 setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
-                setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, repeatFrameUs)
+                setInteger(MediaFormat.KEY_PRIORITY, 0)
+                setInteger(MediaFormat.KEY_OPERATING_RATE, RecordingState.fps)
+                setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 100_000L)
                 if (videoMime == MediaFormat.MIMETYPE_VIDEO_AVC) {
-                    setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileMain)
+                    setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
+                    setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel42)
                 }
             }
             encoder.configure(fallbackFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -1257,14 +1367,10 @@ class RecordingService : Service() {
 
                         outputBuffer.position(info.offset)
                         outputBuffer.limit(info.offset + info.size)
-                        val copied = ByteBuffer.allocate(info.size).order(ByteOrder.nativeOrder())
-                        copied.put(outputBuffer)
-                        copied.flip()
-                        val copiedInfo = MediaCodec.BufferInfo()
-                        copiedInfo.set(0, info.size, adjustedPtsUs, info.flags)
+                        info.presentationTimeUs = adjustedPtsUs
 
                         if (videoTrackIndex >= 0) {
-                            enqueueMuxerSample(videoTrackIndex, copied, copiedInfo)
+                            writeOrBufferSample(videoTrackIndex, outputBuffer, info)
                             lastVideoFrameMs = System.currentTimeMillis()
                         }
                     }
@@ -1304,14 +1410,10 @@ class RecordingService : Service() {
 
                     outputBuffer.position(info.offset)
                     outputBuffer.limit(info.offset + info.size)
-                    val copied = ByteBuffer.allocate(info.size).order(ByteOrder.nativeOrder())
-                    copied.put(outputBuffer)
-                    copied.flip()
-                    val copiedInfo = MediaCodec.BufferInfo()
-                    copiedInfo.set(0, info.size, adjustedPtsUs, info.flags)
+                    info.presentationTimeUs = adjustedPtsUs
 
                     if (videoTrackIndex >= 0) {
-                        enqueueMuxerSample(videoTrackIndex, copied, copiedInfo)
+                        writeOrBufferSample(videoTrackIndex, outputBuffer, info)
                         lastVideoFrameMs = System.currentTimeMillis()
                     }
                 }
@@ -1485,19 +1587,15 @@ class RecordingService : Service() {
                     val outputBuffer = encoder.getOutputBuffer(outputIndex) ?: continue
                     outputBuffer.position(info.offset)
                     outputBuffer.limit(info.offset + info.size)
-                    val copied = ByteBuffer.allocate(info.size).order(ByteOrder.nativeOrder())
-                    copied.put(outputBuffer)
-                    copied.flip()
-                    val copiedInfo = MediaCodec.BufferInfo()
                     val ptsUs = if (isAudio) info.presentationTimeUs else {
                         if (initialVideoPtsUs < 0) initialVideoPtsUs = info.presentationTimeUs
                         (info.presentationTimeUs - initialVideoPtsUs - totalPauseDurationUs).coerceAtLeast(0L)
                     }
-                    copiedInfo.set(0, info.size, ptsUs, info.flags)
+                    info.presentationTimeUs = ptsUs
 
                     val trackIndex = if (isAudio) audioTrackIndex else videoTrackIndex
                     if (trackIndex >= 0) {
-                        enqueueMuxerSample(trackIndex, copied, copiedInfo)
+                        writeOrBufferSample(trackIndex, outputBuffer, info)
                     }
                 }
                 encoder.releaseOutputBuffer(outputIndex, false)
@@ -1534,19 +1632,15 @@ class RecordingService : Service() {
                         if (info.size > 0 && !RecordingState.isPaused) {
                             outputBuffer.position(info.offset)
                             outputBuffer.limit(info.offset + info.size)
-                            val copied = ByteBuffer.allocate(info.size).order(ByteOrder.nativeOrder())
-                            copied.put(outputBuffer)
-                            copied.flip()
-                            val copiedInfo = MediaCodec.BufferInfo()
                             val ptsUs = if (info.presentationTimeUs in 0..currentEosAudioPtsUs + 100_000L) {
                                 info.presentationTimeUs
                             } else {
                                 currentEosAudioPtsUs
                             }
-                            copiedInfo.set(0, info.size, ptsUs, info.flags)
+                            info.presentationTimeUs = ptsUs
 
                             if (audioTrackIndex >= 0) {
-                                enqueueMuxerSample(audioTrackIndex, copied, copiedInfo)
+                                writeOrBufferSample(audioTrackIndex, outputBuffer, info)
                             }
                             currentEosAudioPtsUs += 23219L
                         }
@@ -1571,19 +1665,25 @@ class RecordingService : Service() {
 
     private fun checkAndStartMuxerLocked() {
         if (!muxerStarted && videoTrackIndex >= 0 && (audioTrackIndex >= 0 || !hasAudioTrack)) {
-            mediaMuxer?.start()
-            muxerStarted = true
-            Log.d(TAG, "Muxer started, video=$videoTrackIndex audio=$audioTrackIndex")
+            try {
+                mediaMuxer?.start()
+                muxerStarted = true
+                Log.d(TAG, "Muxer started, video=$videoTrackIndex audio=$audioTrackIndex")
 
-            if (pendingOutputData.isNotEmpty()) {
-                Log.d(TAG, "Flushing ${pendingOutputData.size} pending audio samples")
-                for ((buf, bufInfo) in pendingOutputData) {
-                    if (audioTrackIndex >= 0) {
-                        mediaMuxer?.writeSampleData(audioTrackIndex, buf, bufInfo)
+                if (pendingOutputData.isNotEmpty()) {
+                    Log.d(TAG, "Flushing ${pendingOutputData.size} pending samples")
+                    for (sample in pendingOutputData) {
+                        try {
+                            mediaMuxer?.writeSampleData(sample.trackIndex, sample.data, sample.info)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error flushing pending sample: ${e.message}")
+                        }
                     }
+                    pendingOutputData.clear()
+                    Log.d(TAG, "Pending samples flushed")
                 }
-                pendingOutputData.clear()
-                Log.d(TAG, "Pending audio samples flushed")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start MediaMuxer: ${e.message}")
             }
         }
     }
@@ -1609,12 +1709,7 @@ class RecordingService : Service() {
                 Log.w(TAG, "finishLatch timed out! Forcing shutdown")
             }
 
-            // Flush RAM queue completely to disk before releasing muxer
-            isWriterRunning = false
-            try {
-                muxerWriterThread?.join(5000)
-            } catch (_: Exception) {}
-            muxerWriterThread = null
+
 
             val savedFile = outputFile
             releaseAndResetComponents()
@@ -1906,16 +2001,7 @@ class RecordingService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.channel_recording),
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = getString(R.string.recording_notification_title)
-            setShowBadge(false)
-        }
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(channel)
+        Companion.createNotificationChannel(this)
     }
 
     private fun startForegroundWithType(notification: Notification) {
@@ -1942,117 +2028,11 @@ class RecordingService : Service() {
     }
 
     private fun buildCustomNotification(isRecording: Boolean): Notification {
-        val remoteViews = RemoteViews(packageName, R.layout.notification_custom)
-
-        val gravarPendingIntent = if (isRecording) {
-            val stopIntent = Intent(this, RecordingService::class.java).apply { action = ACTION_STOP_RECORDING }
-            PendingIntent.getService(
-                this, 10, stopIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        } else {
-            val recordIntent = Intent(this, RecordTrampolineActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-            }
-            PendingIntent.getActivity(
-                this, 10, recordIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        }
-
-        val lang = RecordingState.language
-        val isPt = lang == "pt"
-
-        remoteViews.setTextViewText(R.id.notif_app_title, I18n.notifAppTitle(lang, isRecording))
-        remoteViews.setTextViewText(R.id.notif_status_text, I18n.notifStatus(lang, isRecording))
-        remoteViews.setTextViewText(R.id.notif_btn_record_text, I18n.notifBtnRecord(lang, isRecording))
-        remoteViews.setTextViewText(R.id.notif_btn_screenshot_text, I18n.notifBtnScreenshot(lang))
-        remoteViews.setTextViewText(R.id.notif_btn_home_text, I18n.notifBtnHome(lang))
-        remoteViews.setTextViewText(R.id.notif_btn_exit_text, I18n.notifBtnExit(lang))
-
-        if (isRecording) {
-            remoteViews.setImageViewResource(R.id.notif_icon_gravar, R.drawable.ic_stop)
-        } else {
-            remoteViews.setImageViewResource(R.id.notif_icon_gravar, R.drawable.ic_record)
-        }
-
-        val screenshotIntent = Intent(this, CaptureTrampolineActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-        }
-        val screenshotPendingIntent = PendingIntent.getActivity(
-            this, 11, screenshotIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val toolsPendingIntent = if (isRecording) {
-            val isPaused = RecordingState.isPaused
-            val pauseAction = if (isPaused) ACTION_RESUME_RECORDING else ACTION_PAUSE_RECORDING
-            val pauseText = if (isPaused) I18n.notifBtnResume(lang) else I18n.notifBtnPause(lang)
-            val pauseIcon = if (isPaused) R.drawable.ic_play else R.drawable.ic_pause
-
-            remoteViews.setTextViewText(R.id.notif_btn_tools_text, pauseText)
-            remoteViews.setImageViewResource(R.id.notif_icon_tools, pauseIcon)
-
-            val pauseIntent = Intent(this, RecordingService::class.java).apply { action = pauseAction }
-            PendingIntent.getService(
-                this, 12, pauseIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        } else {
-            remoteViews.setTextViewText(R.id.notif_btn_tools_text, I18n.notifBtnBubble(lang))
-            remoteViews.setImageViewResource(R.id.notif_icon_tools, R.drawable.ic_tools)
-
-            val bubbleIntent = Intent(this, OverlayService::class.java).apply {
-                action = OverlayService.ACTION_TOGGLE_BUBBLE
-            }
-            PendingIntent.getService(
-                this, 12, bubbleIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        }
-
-        val homeIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val homePendingIntent = PendingIntent.getActivity(
-            this, 13, homeIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val exitIntent = Intent(this, RecordingService::class.java).apply { action = ACTION_EXIT }
-        val exitPendingIntent = PendingIntent.getService(
-            this, 14, exitIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        remoteViews.setOnClickPendingIntent(R.id.notif_btn_gravar, gravarPendingIntent)
-        remoteViews.setOnClickPendingIntent(R.id.notif_btn_screenshot, screenshotPendingIntent)
-        remoteViews.setOnClickPendingIntent(R.id.notif_btn_tools, toolsPendingIntent)
-        remoteViews.setOnClickPendingIntent(R.id.notif_btn_home, homePendingIntent)
-        remoteViews.setOnClickPendingIntent(R.id.notif_btn_exit, exitPendingIntent)
-
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val openPendingIntent = PendingIntent.getActivity(
-            this, 1, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_record)
-            .setContentIntent(openPendingIntent)
-            .setCustomContentView(remoteViews)
-            .setCustomBigContentView(remoteViews)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
+        return Companion.buildCustomNotification(this, isRecording)
     }
 
     private fun updateNotificationIdle() {
-        val notification = buildCustomNotification(isRecording = false)
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
+        Companion.showIdleNotification(this)
     }
 
     override fun onDestroy() {

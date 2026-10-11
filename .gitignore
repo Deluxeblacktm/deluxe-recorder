@@ -4,12 +4,9 @@
 /.idea/
 .DS_Store
 /build
-*/build
-captures/
-.externalNativeBuild
-.cxx
-opencode.json
+app/build/
+*.apk
+*.aab
 pack.py
 restaurar_backup.py
-*.jks
-*.keystore
+opencode.json

@@ -1,5 +1,6 @@
 package com.deluxe.recorder
 
+import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
@@ -29,15 +30,24 @@ class RecorderTileService : TileService() {
         Log.d("RecorderTileService", "Tile clicked, isRecording=${RecordingState.isRecording}")
 
         if (RecordingState.isRecording) {
-            val intent = Intent(this, RecordingService::class.java).apply {
-                action = RecordingService.ACTION_STOP_RECORDING
+            try {
+                val intent = Intent(this, RecordingService::class.java).apply {
+                    action = RecordingService.ACTION_STOP_RECORDING
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e("RecorderTileService", "Error stopping recording", e)
             }
-            startService(intent)
         } else {
-            val idleIntent = Intent(this, RecordingService::class.java).apply {
-                action = RecordingService.ACTION_INIT_IDLE
+            try {
+                RecordingService.showIdleNotification(this)
+            } catch (e: Exception) {
+                Log.e("RecorderTileService", "Error showing idle notification", e)
             }
-            startService(idleIntent)
         }
     }
 

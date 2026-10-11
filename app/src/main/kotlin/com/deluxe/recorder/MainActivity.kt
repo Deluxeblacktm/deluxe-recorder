@@ -18,11 +18,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,8 @@ import com.deluxe.recorder.util.FileUtils
 import com.deluxe.recorder.ui.HistoryScreen
 import com.deluxe.recorder.ui.MainScreen
 import com.deluxe.recorder.ui.PermissionsScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -126,17 +127,50 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        apply120Hz()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        apply120Hz()
+    }
+
+    private fun apply120Hz() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val modes = display?.supportedModes ?: window.decorView.display?.supportedModes
+                val highestMode = modes?.maxByOrNull { it.refreshRate }
+                val lp = window.attributes
+                if (highestMode != null && highestMode.refreshRate >= 119f) {
+                    lp.preferredDisplayModeId = highestMode.modeId
+                }
+                lp.preferredRefreshRate = highestMode?.refreshRate ?: 120f
+                window.attributes = lp
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val lp = window.attributes
+                lp.preferredRefreshRate = 120f
+                window.attributes = lp
+            }
+        } catch (_: Exception) {}
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         RecordingState.loadSettings(this)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         setTheme(R.style.AppTheme_Dark)
         super.onCreate(savedInstanceState)
-        closeSystemDialogs()
         val barStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(
             statusBarStyle = barStyle,
             navigationBarStyle = barStyle
         )
+        window.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        )
+        apply120Hz()
         setContent {
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             LaunchedEffect(Unit) {
@@ -316,18 +350,8 @@ class MainActivity : AppCompatActivity() {
         AnimatedContent(
             targetState = currentScreen,
             transitionSpec = {
-                if (targetState == "history") {
-                    (slideInHorizontally(tween(350)) { it } + fadeIn(tween(300)))
-                        .togetherWith(slideOutHorizontally(tween(350)) { -it / 3 } + fadeOut(tween(200)))
-                } else if (targetState == "about") {
-                    (slideInHorizontally(tween(350)) { it } + fadeIn(tween(300)))
-                        .togetherWith(slideOutHorizontally(tween(350)) { -it / 3 } + fadeOut(tween(200)))
-                } else if (initialState == "history" || initialState == "about") {
-                    (slideInHorizontally(tween(350)) { -it / 3 } + fadeIn(tween(300)))
-                        .togetherWith(slideOutHorizontally(tween(350)) { it } + fadeOut(tween(200)))
-                } else {
-                    fadeIn(tween(300)).togetherWith(fadeOut(tween(200)))
-                }
+                fadeIn(animationSpec = tween(150, easing = FastOutSlowInEasing))
+                    .togetherWith(fadeOut(animationSpec = tween(120, easing = FastOutSlowInEasing)))
             },
             label = "screenTransition"
         ) { screen ->
@@ -366,16 +390,19 @@ class MainActivity : AppCompatActivity() {
                     onBack = { showHistory = false }
                 )
                 "about" -> {
-                    val aboutStats = remember {
-                        val stat = StatFs(Environment.getDataDirectory().path)
-                        val totalBytes = stat.totalBytes
-                        val availableBytes = stat.availableBytes
-                        val usedBytes = totalBytes - stat.availableBytes
-                        val totalGB = (totalBytes / (1024.0 * 1024.0 * 1024.0)).toInt()
-                        val usedGB = (usedBytes / (1024.0 * 1024.0 * 1024.0)).toInt()
-                        val totalRecordedMs = FileUtils.getTotalRecordingDurationMs(this@MainActivity)
-                        val maxDurationMs = RecordingState.calculateEstimatedDurationMs(availableBytes)
-                        listOf(totalRecordedMs, maxDurationMs, usedGB.toLong(), totalGB.toLong())
+                    var aboutStats by remember { mutableStateOf(listOf(0L, 0L, 0L, 0L)) }
+                    LaunchedEffect(Unit) {
+                        aboutStats = withContext(Dispatchers.IO) {
+                            val stat = StatFs(Environment.getDataDirectory().path)
+                            val totalBytes = stat.totalBytes
+                            val availableBytes = stat.availableBytes
+                            val usedBytes = totalBytes - stat.availableBytes
+                            val totalGB = (totalBytes / (1024.0 * 1024.0 * 1024.0)).toInt()
+                            val usedGB = (usedBytes / (1024.0 * 1024.0 * 1024.0)).toInt()
+                            val totalRecordedMs = FileUtils.getTotalRecordingDurationMs(this@MainActivity)
+                            val maxDurationMs = RecordingState.calculateEstimatedDurationMs(availableBytes)
+                            listOf(totalRecordedMs, maxDurationMs, usedGB.toLong(), totalGB.toLong())
+                        }
                     }
                     AboutScreen(
                         language = appLanguage,

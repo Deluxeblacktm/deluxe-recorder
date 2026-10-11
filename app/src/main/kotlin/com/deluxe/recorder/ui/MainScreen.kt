@@ -45,7 +45,9 @@ import androidx.compose.ui.unit.sp
 import com.deluxe.recorder.I18n
 import com.deluxe.recorder.R
 import com.deluxe.recorder.RecordingState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Crimson = Color(0xFFFF2E54)
 private val CrimsonDark = Color(0xFF240B10)
@@ -107,21 +109,29 @@ fun MainScreen(
     onScreenshot: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        selectedTab = 0
+    }
     val context = LocalContext.current
     var hideOverlayEnabled by remember { mutableStateOf(RecordingState.hideOverlay) }
     var useHevcEnabled by remember { mutableStateOf(RecordingState.useHevc) }
 
-    val storageStats = remember {
-        try {
-            val stat = StatFs(Environment.getDataDirectory().path)
-            val freeBytes = stat.availableBlocksLong * stat.blockSizeLong
-            val totalBytes = stat.blockCountLong * stat.blockSizeLong
-            val freeGB = (freeBytes / (1024L * 1024L * 1024L)).toInt()
-            val totalGB = (totalBytes / (1024L * 1024L * 1024L)).toInt()
-            val pct = if (totalGB > 0) (((totalGB - freeGB).toFloat() / totalGB) * 100).toInt() else 0
-            Triple(freeGB, totalGB, pct) to freeBytes
-        } catch (_: Exception) {
-            Triple(0, 0, 0) to 0L
+    var storageStats by remember {
+        mutableStateOf(Triple(0, 0, 0) to 0L)
+    }
+    LaunchedEffect(Unit) {
+        storageStats = withContext(Dispatchers.IO) {
+            try {
+                val stat = StatFs(Environment.getDataDirectory().path)
+                val freeBytes = stat.availableBlocksLong * stat.blockSizeLong
+                val totalBytes = stat.blockCountLong * stat.blockSizeLong
+                val freeGB = (freeBytes / (1024L * 1024L * 1024L)).toInt()
+                val totalGB = (totalBytes / (1024L * 1024L * 1024L)).toInt()
+                val pct = if (totalGB > 0) (((totalGB - freeGB).toFloat() / totalGB) * 100).toInt() else 0
+                Triple(freeGB, totalGB, pct) to freeBytes
+            } catch (_: Exception) {
+                Triple(0, 0, 0) to 0L
+            }
         }
     }
     val (freeGB, totalGB, storagePercent) = storageStats.first
@@ -627,6 +637,7 @@ private fun ModernSegmentChip(
 ) {
     val bgColor by animateColorAsState(
         targetValue = if (selected) Crimson else Color.Transparent,
+        animationSpec = tween(durationMillis = 120),
         label = "chipBg"
     )
     val textColor = if (selected) TextWhite else TextDim
@@ -714,9 +725,9 @@ private fun HeroBigRecordButton(
     val idleBrush = remember { Brush.radialGradient(listOf(Color(0xFFFF3B5F), Crimson)) }
     val heroBorder = remember { BorderStroke(3.5.dp, Color.White.copy(alpha = 0.2f)) }
 
-    val pulseScaleState = if (isRecording) {
+    val pulseScale = if (isRecording) {
         val infiniteTransition = rememberInfiniteTransition(label = "pulseTransition")
-        infiniteTransition.animateFloat(
+        val scale by infiniteTransition.animateFloat(
             initialValue = 1f,
             targetValue = 1.07f,
             animationSpec = infiniteRepeatable(
@@ -725,15 +736,17 @@ private fun HeroBigRecordButton(
             ),
             label = "pulseScale"
         )
-    } else null
+        scale
+    } else {
+        1f
+    }
 
     Box(
         modifier = Modifier
             .size(104.dp)
             .graphicsLayer {
-                val s = pulseScaleState?.value ?: 1f
-                scaleX = s
-                scaleY = s
+                scaleX = pulseScale
+                scaleY = pulseScale
             }
             .clip(CircleShape)
             .background(if (isRecording) recordingBrush else idleBrush)
@@ -836,6 +849,18 @@ private fun BottomNavItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val navBg by animateColorAsState(
+        targetValue = if (selected) Color(0xFF181A24) else Color.Transparent,
+        animationSpec = tween(120),
+        label = "navBg"
+    )
+    val navBorder = if (selected) BorderStroke(1.dp, CardBorder) else null
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) Crimson else Color(0xFF6B7280),
+        animationSpec = tween(120),
+        label = "iconTint"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -843,27 +868,16 @@ private fun BottomNavItem(
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
-        if (selected) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF181A24),
-                border = BorderStroke(1.dp, CardBorder)
-            ) {
-                Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp)) {
-                    Icon(
-                        painter = painterResource(id = icon),
-                        contentDescription = label,
-                        tint = Crimson,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-            }
-        } else {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = navBg,
+            border = navBorder
+        ) {
             Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                 Icon(
                     painter = painterResource(id = icon),
                     contentDescription = label,
-                    tint = Color(0xFF6B7280),
+                    tint = iconTint,
                     modifier = Modifier.size(19.dp)
                 )
             }

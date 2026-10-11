@@ -8,6 +8,8 @@ import android.os.Build
 import android.util.Size
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -72,8 +74,18 @@ fun HistoryScreen(
     val coroutineScope = rememberCoroutineScope()
     val selectedTab = pagerState.currentPage
 
-    var recordings by remember { mutableStateOf(FileUtils.getRecordings(context)) }
-    var screenshots by remember { mutableStateOf(FileUtils.getScreenshots(context)) }
+    var recordings by remember { mutableStateOf<List<RecordingEntry>>(emptyList()) }
+    var screenshots by remember { mutableStateOf<List<RecordingEntry>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val (rec, scr) = withContext(Dispatchers.IO) {
+            Pair(FileUtils.getRecordings(context), FileUtils.getScreenshots(context))
+        }
+        recordings = rec
+        screenshots = scr
+        isLoading = false
+    }
 
     var showDeleteDialog by remember { mutableStateOf<RecordingEntry?>(null) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
@@ -89,8 +101,14 @@ fun HistoryScreen(
     val allSelected = activeList.isNotEmpty() && selectedIds.size == activeList.size
 
     fun reload() {
-        recordings = FileUtils.getRecordings(context)
-        screenshots = FileUtils.getScreenshots(context)
+        coroutineScope.launch(Dispatchers.IO) {
+            val rec = FileUtils.getRecordings(context)
+            val scr = FileUtils.getScreenshots(context)
+            withContext(Dispatchers.Main) {
+                recordings = rec
+                screenshots = scr
+            }
+        }
     }
 
     fun handleBack() {
@@ -200,6 +218,10 @@ fun HistoryScreen(
                 color = Color(0xFF08090D),
                 border = BorderStroke(1.dp, CardBorder)
             ) {
+                val targetTab = pagerState.targetPage
+                val tab0Bg by animateColorAsState(if (targetTab == 0) Crimson else Color.Transparent, tween(150), label = "tab0Bg")
+                val tab1Bg by animateColorAsState(if (targetTab == 1) Crimson else Color.Transparent, tween(150), label = "tab1Bg")
+
                 Row(
                     modifier = Modifier.padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -214,7 +236,7 @@ fun HistoryScreen(
                                 }
                             },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (selectedTab == 0) Crimson else Color.Transparent
+                        color = tab0Bg
                     ) {
                         Box(
                             modifier = Modifier.padding(vertical = 9.dp),
@@ -222,9 +244,9 @@ fun HistoryScreen(
                         ) {
                             Text(
                                 text = I18n.tabRecordedVideos(language, recordings.size),
-                                color = if (selectedTab == 0) TextWhite else TextDim,
+                                color = if (targetTab == 0) TextWhite else TextDim,
                                 fontSize = 11.5.sp,
-                                fontWeight = if (selectedTab == 0) FontWeight.ExtraBold else FontWeight.SemiBold
+                                fontWeight = if (targetTab == 0) FontWeight.ExtraBold else FontWeight.SemiBold
                             )
                         }
                     }
@@ -239,7 +261,7 @@ fun HistoryScreen(
                                 }
                             },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (selectedTab == 1) Crimson else Color.Transparent
+                        color = tab1Bg
                     ) {
                         Box(
                             modifier = Modifier.padding(vertical = 9.dp),
@@ -247,9 +269,9 @@ fun HistoryScreen(
                         ) {
                             Text(
                                 text = I18n.tabScreenshots(language, screenshots.size),
-                                color = if (selectedTab == 1) TextWhite else TextDim,
+                                color = if (targetTab == 1) TextWhite else TextDim,
                                 fontSize = 11.5.sp,
-                                fontWeight = if (selectedTab == 1) FontWeight.ExtraBold else FontWeight.SemiBold
+                                fontWeight = if (targetTab == 1) FontWeight.ExtraBold else FontWeight.SemiBold
                             )
                         }
                     }
@@ -264,7 +286,18 @@ fun HistoryScreen(
                 val isVideoPage = page == 0
                 val pageList = if (isVideoPage) recordings else screenshots
 
-                if (pageList.isEmpty()) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Crimson,
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp
+                        )
+                    }
+                } else if (pageList.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -575,11 +608,14 @@ private fun HistoryItemCard(
 private fun VideoThumbnail(entry: RecordingEntry, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val targetPx = with(LocalDensity.current) { 96.dp.toPx() }.toInt()
-    var bitmap by remember(entry.uri) { mutableStateOf<Bitmap?>(null) }
+    val cacheKey = "${entry.uri}@$targetPx"
+    var bitmap by remember(entry.uri) { mutableStateOf(FileUtils.getCachedThumbnail(cacheKey)) }
 
     LaunchedEffect(entry.uri) {
-        bitmap = withContext(Dispatchers.IO) {
-            FileUtils.getVideoThumbnail(context, entry.uri, targetPx)
+        if (bitmap == null) {
+            bitmap = withContext(Dispatchers.IO) {
+                FileUtils.getVideoThumbnail(context, entry.uri, targetPx)
+            }
         }
     }
 
@@ -623,20 +659,13 @@ private fun VideoThumbnail(entry: RecordingEntry, modifier: Modifier = Modifier)
 @Composable
 private fun ImageThumbnail(entry: RecordingEntry, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var bitmap by remember(entry.uri) { mutableStateOf<Bitmap?>(null) }
+    val cacheKey = "img@${entry.uri}@120x90"
+    var bitmap by remember(entry.uri) { mutableStateOf(FileUtils.getCachedThumbnail(cacheKey)) }
 
     LaunchedEffect(entry.uri) {
-        bitmap = withContext(Dispatchers.IO) {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    context.contentResolver.loadThumbnail(entry.uri, Size(120, 90), null)
-                } else {
-                    BitmapFactory.decodeStream(
-                        context.contentResolver.openInputStream(entry.uri)
-                    )
-                }
-            } catch (_: Exception) {
-                null
+        if (bitmap == null) {
+            bitmap = withContext(Dispatchers.IO) {
+                FileUtils.getImageThumbnail(context, entry.uri)
             }
         }
     }

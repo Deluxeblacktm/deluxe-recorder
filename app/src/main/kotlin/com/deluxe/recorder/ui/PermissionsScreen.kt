@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -158,8 +160,11 @@ fun PermissionsScreen(
                     if (animatedProgress > 0f) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(animatedProgress)
-                                .fillMaxHeight()
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = animatedProgress
+                                    transformOrigin = TransformOrigin(0f, 0.5f)
+                                }
                                 .clip(CircleShape)
                                 .background(
                                     Brush.horizontalGradient(
